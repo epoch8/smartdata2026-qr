@@ -501,6 +501,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "datapipe-core" },
+    { name = "fsspec" },
     { name = "polars" },
     { name = "pyarrow" },
     { name = "pysqlite3" },
@@ -511,6 +512,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "datapipe-core", specifier = "==0.15.0" },
+    { name = "fsspec", specifier = ">=2026.7.0" },
     { name = "polars", specifier = ">=1.44.2" },
     { name = "pyarrow", specifier = "==25.0.1" },
     { name = "pysqlite3", specifier = "==0.6.0" },
