@@ -18,13 +18,13 @@ meta__***           - meta-information about output data;
 
 
 def parse_cars(df__input__cars_scanned: pd.DataFrame) -> pd.DataFrame:
-    list_output_dfs = []
+    list_output = []
 
     for _, row in df__input__cars_scanned.iterrows():
         with open(row["filepath"], "r") as file:
             json_record = json.load(file)
 
-        df__record_parsed = pd.DataFrame(
+        list_output.append(
             {
                 "file_name": row["file_name"],
                 "model_id": json_record["model_id"],
@@ -34,12 +34,9 @@ def parse_cars(df__input__cars_scanned: pd.DataFrame) -> pd.DataFrame:
                 "year": json_record["year"],
                 "new": json_record["new"],
             },
-            index=[0]
         )
-
-        list_output_dfs.append(df__record_parsed)
-
-    df__output__cars_parsed = pd.concat(list_output_dfs)
+    
+    df__output__cars_parsed = pd.DataFrame(list_output)
     
     df__output__cars_parsed["new"] = df__output__cars_parsed["new"].astype(bool)
 
@@ -49,9 +46,15 @@ def parse_cars(df__input__cars_scanned: pd.DataFrame) -> pd.DataFrame:
 def agg__price_by_manufacture_country(
         df__input__cars_parsed: pd.DataFrame,
 ) -> pd.DataFrame:
-    df__output__price_by_manufacture_country = df__input__cars_parsed[["manufacture_country", "price"]]
+    
+    # Selecting required data
+    df__input__cars_parsed = df__input__cars_parsed[
+        ["manufacture_country", "price"]
+    ]
+
+    # Processing
     df__output__price_by_manufacture_country = (
-        df__output__price_by_manufacture_country
+        df__input__cars_parsed
         .groupby("manufacture_country", as_index=False)
         .sum()
     )
@@ -62,9 +65,15 @@ def agg__price_by_manufacture_country(
 def agg__price_by_color(
         df__input__cars_parsed: pd.DataFrame,
 ) -> pd.DataFrame:
-    df__output__price_by_color = df__input__cars_parsed[["color", "price"]]
+    
+    # Selecting required data
+    df__input__cars_parsed = df__input__cars_parsed[
+        ["color", "price"]
+    ]
+
+    # Processing
     df__output__price_by_color = (
-        df__output__price_by_color
+        df__input__cars_parsed
         .groupby("color", as_index=False)
         .sum()
     )
@@ -75,9 +84,15 @@ def agg__price_by_color(
 def agg__price_by_manufacture_country_and_color(
         df__input__cars_parsed: pd.DataFrame,
 ) -> pd.DataFrame:
-    df__output__price_by_manufacture_country_and_color = df__input__cars_parsed[["manufacture_country", "color", "price"]]
+    
+    # Selecting required data
+    df__input__cars_parsed = df__input__cars_parsed[
+        ["manufacture_country", "color", "price"]
+    ]
+
+    # Processing
     df__output__price_by_manufacture_country_and_color = (
-        df__output__price_by_manufacture_country_and_color
+        df__input__cars_parsed
         .groupby(["manufacture_country", "color"], as_index=False)
         .sum()
     )
@@ -89,8 +104,12 @@ def generate__cars_docs(
         df__input__cars_parsed: pd.DataFrame,
         docs: list,
 ) -> pd.DataFrame:
-    df__output__cars_docs = df__input__cars_parsed[["file_name"]]
-    df__output__cars_docs = df__output__cars_docs.join(
+    
+    # Selecting required data
+    df__input__cars_parsed = df__input__cars_parsed[["file_name"]]
+
+    # Processing
+    df__output__cars_docs = df__input__cars_parsed.join(
         pd.DataFrame(
             {
                 "doc_name": docs,
@@ -102,3 +121,53 @@ def generate__cars_docs(
     )
 
     return df__output__cars_docs
+
+
+def parse_countries(df__input__countries_scanned: pd.DataFrame) -> pd.DataFrame:
+    list_output = []
+
+    for _, row in df__input__countries_scanned.iterrows():
+        with open(row["filepath"], "r") as file:
+            json_record = json.load(file)
+
+        list_output.append(
+            {
+                "file_name": row["file_name"],
+                "manufacture_country": json_record["country"],
+                "vat": json_record["vat"],
+            },
+        )
+    
+    df__output__countries_parsed = pd.DataFrame(list_output)
+    
+    return df__output__countries_parsed
+
+
+def generate__cars_price_with_vat(
+        df__input__cars_parsed: pd.DataFrame,
+        df__input__countries_parsed: pd.DataFrame,
+) -> pd.DataFrame:
+    
+    # Selecting required data
+    df__input__cars_parsed = df__input__cars_parsed[
+        ["file_name", "manufacture_country", "price"]
+    ]
+
+    df__input__countries_parsed = df__input__countries_parsed[
+        ["manufacture_country", "vat"]
+    ]
+
+    # Processing
+    df__output__cars_price_with_vat = df__input__cars_parsed.merge(
+        df__input__countries_parsed,
+        on=["manufacture_country"],
+        how="left",
+    )
+
+    df__output__cars_price_with_vat["price_with_vat"] = (
+        df__output__cars_price_with_vat["price"] * (1 + df__output__cars_price_with_vat["vat"])
+    )
+
+    df__output__cars_price_with_vat.drop(columns=["vat"], inplace=True)
+
+    return df__output__cars_price_with_vat

@@ -19,6 +19,8 @@ from .transformations import agg__price_by_manufacture_country
 from .transformations import agg__price_by_color
 from .transformations import agg__price_by_manufacture_country_and_color
 from .transformations import generate__cars_docs
+from .transformations import parse_countries
+from .transformations import generate__cars_price_with_vat
 
 
 SQLiteDialect_pysqlite3.supports_statement_cache = True
@@ -27,7 +29,10 @@ SQLiteDialect_pysqlite3.supports_statement_cache = True
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FILEPATH__RAW__CARS = os.path.join(CURRENT_DIR, "data/raw/cars/{file_name}.json")
+FILEPATH__RAW__COUNTRIES = os.path.join(CURRENT_DIR, "data/raw/countries/{file_name}.json")
+
 FILEPATH__PROCESSED__CARS = os.path.join(CURRENT_DIR, "data/processed/cars/{data}.jsonl")
+FILEPATH__PROCESSED__COUNTRIES = os.path.join(CURRENT_DIR, "data/processed/countries/{data}.jsonl")
 
 
 try:
@@ -85,6 +90,24 @@ catalog = Catalog(
                 primary_schema=[
                     Column("file_name", String, primary_key=True),
                     Column("doc_name", String, primary_key=True),
+                ],
+            )
+        ),
+        "countries_parsed": Table(
+            store=TableStoreJsonLine(
+                filename=FILEPATH__PROCESSED__COUNTRIES.format(data="countries_parsed"),
+                primary_schema=[
+                    Column("file_name", String, primary_key=True),
+                    Column("manufacture_country", String, primary_key=True),
+                ],
+            )
+        ),
+        "cars_price_with_vat": Table(
+            store=TableStoreJsonLine(
+                filename=FILEPATH__PROCESSED__CARS.format(data="cars_price_with_vat"),
+                primary_schema=[
+                    Column("file_name", String, primary_key=True),
+                    Column("manufacture_country", String, primary_key=True),
                 ],
             )
         ),
@@ -180,6 +203,48 @@ pipeline = Pipeline(
             executor_config=ExecutorConfig(parallelism=1),
             transform_keys=[
                 "file_name",
+            ],
+            labels=[
+                ("entity", "cars"),
+                ("layer", "generate"),
+                ("environment", "prod"),
+            ],
+        ),
+        ScanFileList(
+            filename_pattern=FILEPATH__RAW__COUNTRIES,
+            filename_output=FILEPATH__PROCESSED__COUNTRIES,
+            output="countries_scanned",
+            labels=[
+                ("entity", "countries"),
+                ("layer", "scan"),
+                ("environment", "prod"),
+            ],
+        ),
+        BatchTransform(
+            parse_countries,
+            inputs=["countries_scanned"],
+            outputs=["countries_parsed"],
+            kwargs={},
+            chunk_size=2,
+            executor_config=ExecutorConfig(parallelism=1),
+            transform_keys=[
+                "file_name",
+            ],
+            labels=[
+                ("entity", "cars"),
+                ("layer", "parse"),
+                ("environment", "prod"),
+            ],
+        ),
+        BatchTransform(
+            generate__cars_price_with_vat,
+            inputs=["cars_parsed", "countries_parsed"],
+            outputs=["cars_price_with_vat"],
+            kwargs={},
+            chunk_size=1,
+            executor_config=ExecutorConfig(parallelism=1),
+            transform_keys=[
+                "manufacture_country",
             ],
             labels=[
                 ("entity", "cars"),
