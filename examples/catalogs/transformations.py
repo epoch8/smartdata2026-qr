@@ -83,3 +83,22 @@ def agg__price_by_manufacture_country_and_color(
     )
 
     return df__output__price_by_manufacture_country_and_color
+
+
+def generate__cars_docs(
+        df__input__cars_parsed: pd.DataFrame,
+        docs: list,
+) -> pd.DataFrame:
+    df__output__cars_docs = df__input__cars_parsed[["file_name"]]
+    df__output__cars_docs = df__output__cars_docs.join(
+        pd.DataFrame(
+            {
+                "doc_name": docs,
+                "created_at": pd.Timestamp.now(),
+            }
+        ),
+        on=None,
+        how="cross",
+    )
+
+    return df__output__cars_docs

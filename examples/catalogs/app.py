@@ -18,6 +18,7 @@ from .transformations import parse_cars
 from .transformations import agg__price_by_manufacture_country
 from .transformations import agg__price_by_color
 from .transformations import agg__price_by_manufacture_country_and_color
+from .transformations import generate__cars_docs
 
 
 SQLiteDialect_pysqlite3.supports_statement_cache = True
@@ -75,6 +76,15 @@ catalog = Catalog(
                 primary_schema=[
                     Column("manufacture_country", String, primary_key=True),
                     Column("color", String, primary_key=True),
+                ],
+            )
+        ),
+        "cars_docs": Table(
+            store=TableStoreJsonLine(
+                filename=FILEPATH__PROCESSED__CARS.format(data="cars_docs"),
+                primary_schema=[
+                    Column("file_name", String, primary_key=True),
+                    Column("doc_name", String, primary_key=True),
                 ],
             )
         ),
@@ -156,6 +166,24 @@ pipeline = Pipeline(
             labels=[
                 ("entity", "cars"),
                 ("layer", "agg"),
+                ("environment", "prod"),
+            ],
+        ),
+        BatchTransform(
+            generate__cars_docs,
+            inputs=["cars_parsed"],
+            outputs=["cars_docs"],
+            kwargs={
+                "docs": ["passport", "license"],
+            },
+            chunk_size=10,
+            executor_config=ExecutorConfig(parallelism=1),
+            transform_keys=[
+                "file_name",
+            ],
+            labels=[
+                ("entity", "cars"),
+                ("layer", "generate"),
                 ("environment", "prod"),
             ],
         ),
